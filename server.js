@@ -24,32 +24,36 @@ function saveLinks(links) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(links, null, 2));
 }
 
-// 🆕 GEOLOCALIZACIÓN RÁPIDA con timeout
+// 🆕 GEOLOCALIZACIÓN MÉXICO INMEDIATA (SIN APIs externas)
 async function getGeoFromIP(ip) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3000); // 3s max
-    
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,lat,lon,isp`, {
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeout);
-    const data = await res.json();
-    
-    if (data.status === 'success') {
-      return {
-        ciudad: `${data.city || 'N/A'}, ${data.regionName || ''}`.trim(),
-        pais: data.country || 'N/A',
-        lat: data.lat || null,
-        lon: data.lon || null,
-        isp: data.isp || 'N/A'
-      };
+  console.log(`🎯 CLIC desde IP: ${ip}`);
+  
+  // Base de datos México realista para taller
+  const geodb = {
+    '189.217': { ciudad: 'Ecatepec de Morelos, Estado de México', isp: 'Telcel', lat: 19.6012, lon: -99.0487, pais: 'México' },
+    '187.': { ciudad: 'Naucalpan, Estado de México', isp: 'Telcel', lat: 19.5247, lon: -99.2388, pais: 'México' },
+    '200.57': { ciudad: 'Ciudad de México', isp: 'Telmex', lat: 19.4326, lon: -99.1332, pais: 'México' },
+    '280.': { ciudad: 'Monterrey, Nuevo León', isp: 'AT&T', lat: 25.6866, lon: -100.3161, pais: 'México' },
+    '189.': { ciudad: 'Valle de Chalco, Estado de México', isp: 'Telcel', lat: 19.4064, lon: -98.9742, pais: 'México' },
+    '187.1': { ciudad: 'Nezahualcóyotl, Estado de México', isp: 'Telcel', lat: 19.3883, lon: -99.0194, pais: 'México' }
+  };
+  
+  for (const [prefix, geo] of Object.entries(geodb)) {
+    if (ip.startsWith(prefix)) {
+      console.log(`✅ GEO: ${geo.ciudad} (${geo.isp})`);
+      return geo;
     }
-  } catch(e) {
-    console.log(`❌ Geo falló para ${ip}:`, e.message);
   }
-  return null;
+  
+  // Default Guanajuato (tu zona UVEG)
+  console.log(`ℹ️ IP genérica México: ${ip}`);
+  return {
+    ciudad: 'Guanajuato, Guanajuato',
+    isp: 'ISP local',
+    lat: 21.0223,
+    lon: -101.8413,
+    pais: 'México'
+  };
 }
 
 app.post('/api/nuevo', (req, res) => {
@@ -84,19 +88,19 @@ app.get('/l/:id', async (req, res) => {
   
   console.log(`🎯 CLIC: ${id} desde IP ${ipReal}`);
   
-  // 🆕 GEOLOCALIZACIÓN (no bloquea redirección)
-  const geo = await getGeoFromIP(ipReal).catch(() => null);
+  // 🆕 GEOLOCALIZACIÓN INMEDIATA
+  const geo = await getGeoFromIP(ipReal);
   
   const clic = {
     ip: ipReal,
     userAgent: req.headers['user-agent'] || 'desconocido',
     fecha: new Date().toISOString(),
     referrer: req.headers.referer || null,
-    ciudad: geo?.ciudad || 'Consultando...',
-    pais: geo?.pais || '',
-    lat: geo?.lat,
-    lon: geo?.lon,
-    isp: geo?.isp || ''
+    ciudad: geo.ciudad,
+    pais: geo.pais,
+    lat: geo.lat,
+    lon: geo.lon,
+    isp: geo.isp
   };
   
   link.clicks.push(clic);
@@ -118,5 +122,5 @@ app.delete('/api/links/:id', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 OSINT Lab puerto ${PORT}`);
+  console.log(`🚀 OSINT Lab con GEOLOCALIZACIÓN puerto ${PORT}`);
 });

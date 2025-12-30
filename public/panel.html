@@ -9,6 +9,17 @@
     .link { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
     .clic { background: #f8f9fa; padding: 10px; margin: 5px 0; font-size: 14px; }
     h3 { color: #007bff; }
+    .borrar-btn {
+      float: right; 
+      background: #dc3545; 
+      color: white; 
+      border: none; 
+      padding: 8px 12px; 
+      cursor: pointer; 
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .borrar-btn:hover { background: #c82333; }
   </style>
 </head>
 <body>
@@ -17,13 +28,29 @@
   <div id="links"></div>
   
   <script>
+    // 🆕 NUEVA FUNCIÓN: Borrar enlace
+    async function borrarEnlace(id) {
+      if (!confirm(`¿Borrar enlace ${id} y todos sus clics?`)) return;
+      
+      try {
+        const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        alert(data.mensaje || 'Enlace eliminado');
+        cargarPanel();  // Recargar panel inmediatamente
+      } catch(e) {
+        alert('Error al borrar: ' + e.message);
+      }
+    }
+    
     async function cargarPanel() {
       const res = await fetch('/api/links');
       const links = await res.json();
       
       document.getElementById('links').innerHTML = links.map(link => `
         <div class="link">
-          <h3>🔗 ${link.id} → <a href="${link.destino}" target="_blank">${link.destino}</a></h3>
+          <h3>🔗 ${link.id} → <a href="${link.destino}" target="_blank">${link.destino}</a>
+             <button class="borrar-btn" onclick="borrarEnlace('${link.id}')">🗑️ Borrar</button>
+          </h3>
           <p><strong>Creado:</strong> ${new Date(link.creado).toLocaleString('es-MX')}</p>
           <p><strong>Total clics:</strong> ${link.clicks.length}</p>
           <div>
@@ -32,6 +59,7 @@
                 📍 <strong>IP:</strong> ${clic.ip}<br>
                 🖥️ <strong>Dispositivo:</strong> ${clic.userAgent.substring(0,80)}...<br>
                 🕒 <strong>Fecha:</strong> ${new Date(clic.fecha).toLocaleString('es-MX')}
+                ${clic.referrer ? `<br>🔗 <strong>Vino desde:</strong> ${clic.referrer}` : ''}
               </div>
             `).join('')}
           </div>

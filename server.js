@@ -10,97 +10,93 @@ const DATA_PATH = path.join(process.cwd(), 'links.json');
 app.use(express.json());
 app.use(express.static('public'));
 
-// Función para cargar links
+// Trust proxy para IPs reales en Render
+app.set('trust proxy', true);
+
 function loadLinks() {
   if (!fs.existsSync(DATA_PATH)) return [];
   try {
-    const contenido = fs.readFileSync(DATA_PATH, 'utf-8');
-    return JSON.parse(contenido);
-  } catch {
-    return [];
-  }
+    return JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'));
+  } catch { return []; }
 }
 
-// Función para guardar links
 function saveLinks(links) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(links, null, 2));
 }
 
-// 🆕 FUNCIÓN GEOLOCALIZACIÓN por IP (GRATIS)
+// 🆕 GEOLOCALIZACIÓN RÁPIDA con timeout
 async function getGeoFromIP(ip) {
   try {
-    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,lat,lon,isp`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s max
+    
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,lat,lon,isp`, {
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeout);
     const data = await res.json();
+    
     if (data.status === 'success') {
       return {
-        ciudad: `${data.city || 'Desconocida'}, ${data.regionName || ''}`,
-        pais: data.country || 'Desconocido',
-        lat: data.lat,
-        lon: data.lon,
-        isp: data.isp || 'Desconocido'
+        ciudad: `${data.city || 'N/A'}, ${data.regionName || ''}`.trim(),
+        pais: data.country || 'N/A',
+        lat: data.lat || null,
+        lon: data.lon || null,
+        isp: data.isp || 'N/A'
       };
     }
   } catch(e) {
-    console.log('Error geolocalización:', e.message);
+    console.log(`❌ Geo falló para ${ip}:`, e.message);
   }
-  return { ciudad: 'No disponible', pais: '', lat: null, lon: null, isp: '' };
+  return null;
 }
 
-// Ruta para crear nuevo enlace corto
 app.post('/api/nuevo', (req, res) => {
   const { destino } = req.body;
-  
   if (!destino || !destino.startsWith('http')) {
-    return res.status(400).json({ error: 'URL destino inválida' });
+    return res.status(400).json({ error: 'URL inválida' });
   }
   
   const links = loadLinks();
   const id = nanoid(6);
-  
-  const nuevoLink = {
-    id,
-    destino,
-    clicks: [],
-    creado: new Date().toISOString()
-  };
+  const nuevoLink = { id, destino, clicks: [], creado: new Date().toISOString() };
   
   links.push(nuevoLink);
   saveLinks(links);
   
   res.json({
     corto: `${req.protocol}://${req.get('host')}/l/${id}`,
-    id,
-    destino
+    id, destino
   });
 });
 
-// Ruta para redirigir (¡GEOLOCALIZACIÓN REAL!)
 app.get('/l/:id', async (req, res) => {
   const { id } = req.params;
   const links = loadLinks();
   const link = links.find(l => l.id === id);
   
-  if (!link) {
-    return res.status(404).send('Enlace no encontrado');
-  }
+  if (!link) return res.status(404).send('Enlace no encontrado');
   
-  // 🆕 IP REAL MEJORADA
-  const ipReal = (req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '127.0.0.1').replace('::1', '127.0.0.1');
+  // 🆕 IP REAL (Render proxy)
+  const ipReal = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                 req.ip || req.connection.remoteAddress || '127.0.0.1';
   
-  // 🆕 GEOLOCALIZACIÓN AUTOMÁTICA
-  const geo = await getGeoFromIP(ipReal);
+  console.log(`🎯 CLIC: ${id} desde IP ${ipReal}`);
+  
+  // 🆕 GEOLOCALIZACIÓN (no bloquea redirección)
+  const geo = await getGeoFromIP(ipReal).catch(() => null);
   
   const clic = {
     ip: ipReal,
     userAgent: req.headers['user-agent'] || 'desconocido',
     fecha: new Date().toISOString(),
     referrer: req.headers.referer || null,
-    // 🆕 GEOLOCALIZACIÓN REAL
-    ciudad: geo.ciudad,
-    pais: geo.pais,
-    lat: geo.lat,
-    lon: geo.lon,
-    isp: geo.isp
+    ciudad: geo?.ciudad || 'Consultando...',
+    pais: geo?.pais || '',
+    lat: geo?.lat,
+    lon: geo?.lon,
+    isp: geo?.isp || ''
   };
   
   link.clicks.push(clic);
@@ -109,34 +105,18 @@ app.get('/l/:id', async (req, res) => {
   res.redirect(302, link.destino);
 });
 
-// Panel de admin (con geolocalización)
-app.get('/api/links', (req, res) => {
-  res.json(loadLinks());
-});
-
-// 🆕 Ruta para GPS directo del navegador
-app.post('/api/gps', express.json(), async (req, res) => {
-  const { lat, lon, accuracy } = req.body;
-  res.json({ ok: true });
-  console.log(`🗺️ GPS directo: ${lat},${lon} (precisión: ${accuracy}m)`);
-});
-
-// Borrar enlace
+app.get('/api/links', (req, res) => res.json(loadLinks()));
 app.delete('/api/links/:id', (req, res) => {
   const { id } = req.params;
   let links = loadLinks();
   const indice = links.findIndex(l => l.id === id);
-  
-  if (indice === -1) {
-    return res.status(404).json({ error: 'Enlace no encontrado' });
-  }
+  if (indice === -1) return res.status(404).json({ error: 'No encontrado' });
   
   links.splice(indice, 1);
   saveLinks(links);
-  
-  res.json({ ok: true, mensaje: `Enlace ${id} eliminado` });
+  res.json({ ok: true, mensaje: `Eliminado ${id}` });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor OSINT con GEOLOCALIZACIÓN en puerto ${PORT}`);
+  console.log(`🚀 OSINT Lab puerto ${PORT}`);
 });

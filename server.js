@@ -26,6 +26,26 @@ function saveLinks(links) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(links, null, 2));
 }
 
+// 🆕 FUNCIÓN GEOLOCALIZACIÓN por IP (GRATIS)
+async function getGeoFromIP(ip) {
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,regionName,city,lat,lon,isp`);
+    const data = await res.json();
+    if (data.status === 'success') {
+      return {
+        ciudad: `${data.city || 'Desconocida'}, ${data.regionName || ''}`,
+        pais: data.country || 'Desconocido',
+        lat: data.lat,
+        lon: data.lon,
+        isp: data.isp || 'Desconocido'
+      };
+    }
+  } catch(e) {
+    console.log('Error geolocalización:', e.message);
+  }
+  return { ciudad: 'No disponible', pais: '', lat: null, lon: null, isp: '' };
+}
+
 // Ruta para crear nuevo enlace corto
 app.post('/api/nuevo', (req, res) => {
   const { destino } = req.body;
@@ -35,7 +55,7 @@ app.post('/api/nuevo', (req, res) => {
   }
   
   const links = loadLinks();
-  const id = nanoid(6); // ID corto de 6 caracteres
+  const id = nanoid(6);
   
   const nuevoLink = {
     id,
@@ -54,8 +74,8 @@ app.post('/api/nuevo', (req, res) => {
   });
 });
 
-// Ruta para redirigir (¡aquí se hace el tracking!)
-app.get('/l/:id', (req, res) => {
+// Ruta para redirigir (¡GEOLOCALIZACIÓN REAL!)
+app.get('/l/:id', async (req, res) => {
   const { id } = req.params;
   const links = loadLinks();
   const link = links.find(l => l.id === id);
@@ -64,27 +84,44 @@ app.get('/l/:id', (req, res) => {
     return res.status(404).send('Enlace no encontrado');
   }
   
-  // Registrar el clic
+  // 🆕 IP REAL MEJORADA
+  const ipReal = (req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '127.0.0.1').replace('::1', '127.0.0.1');
+  
+  // 🆕 GEOLOCALIZACIÓN AUTOMÁTICA
+  const geo = await getGeoFromIP(ipReal);
+  
   const clic = {
-    ip: (req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '127.0.0.1').replace('::1', '127.0.0.1'),
+    ip: ipReal,
     userAgent: req.headers['user-agent'] || 'desconocido',
     fecha: new Date().toISOString(),
-    referrer: req.headers.referer || null
+    referrer: req.headers.referer || null,
+    // 🆕 GEOLOCALIZACIÓN REAL
+    ciudad: geo.ciudad,
+    pais: geo.pais,
+    lat: geo.lat,
+    lon: geo.lon,
+    isp: geo.isp
   };
   
   link.clicks.push(clic);
   saveLinks(links);
   
-  // Redirigir al destino real
   res.redirect(302, link.destino);
 });
 
-// Panel de admin (para ver estadísticas)
+// Panel de admin (con geolocalización)
 app.get('/api/links', (req, res) => {
   res.json(loadLinks());
 });
 
-// 🆕 NUEVA RUTA: BORRAR enlace específico
+// 🆕 Ruta para GPS directo del navegador
+app.post('/api/gps', express.json(), async (req, res) => {
+  const { lat, lon, accuracy } = req.body;
+  res.json({ ok: true });
+  console.log(`🗺️ GPS directo: ${lat},${lon} (precisión: ${accuracy}m)`);
+});
+
+// Borrar enlace
 app.delete('/api/links/:id', (req, res) => {
   const { id } = req.params;
   let links = loadLinks();
@@ -94,12 +131,12 @@ app.delete('/api/links/:id', (req, res) => {
     return res.status(404).json({ error: 'Enlace no encontrado' });
   }
   
-  links.splice(indice, 1);  // Eliminar del array
+  links.splice(indice, 1);
   saveLinks(links);
   
   res.json({ ok: true, mensaje: `Enlace ${id} eliminado` });
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor en puerto ${PORT}`);
+  console.log(`🚀 Servidor OSINT con GEOLOCALIZACIÓN en puerto ${PORT}`);
 });

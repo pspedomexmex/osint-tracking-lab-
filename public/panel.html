@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel OSINT - Clics rastreados</title>
+  <style>
+    body { font-family: sans-serif; max-width: 1000px; margin: 20px auto; }
+    .link { border: 1px solid #ddd; padding: 20px; margin: 10px 0; border-radius: 8px; }
+    .clic { background: #f8f9fa; padding: 10px; margin: 5px 0; font-size: 14px; }
+    h3 { color: #007bff; }
+  </style>
+</head>
+<body>
+  <h1>📊 Panel OSINT Tracking Lab</h1>
+  <a href="/">&larr; Generar nuevos enlaces</a>
+  <div id="links"></div>
+  
+  <script>
+    async function cargarPanel() {
+      const res = await fetch('/api/links');
+      const links = await res.json();
+      
+      document.getElementById('links').innerHTML = links.map(link => `
+        <div class="link">
+          <h3>🔗 ${link.id} → <a href="${link.destino}" target="_blank">${link.destino}</a></h3>
+          <p><strong>Creado:</strong> ${new Date(link.creado).toLocaleString('es-MX')}</p>
+          <p><strong>Total clics:</strong> ${link.clicks.length}</p>
+          <div>
+            ${link.clicks.map(clic => `
+              <div class="clic">
+                📍 <strong>IP:</strong> ${clic.ip}<br>
+                🖥️ <strong>Dispositivo:</strong> ${clic.userAgent.substring(0,80)}...<br>
+                🕒 <strong>Fecha:</strong> ${new Date(clic.fecha).toLocaleString('es-MX')}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+    cargarPanel();
+    setInterval(cargarPanel, 5000); // Actualiza cada 5 seg
+  </script>
+</body>
+</html>

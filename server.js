@@ -48,7 +48,7 @@ app.post('/api/nuevo', (req, res) => {
   saveLinks(links);
   
   res.json({
-    corto: `https://tudominio.com/l/${id}`,
+    corto: `http://localhost:3000/l/${id}`,
     id,
     destino
   });

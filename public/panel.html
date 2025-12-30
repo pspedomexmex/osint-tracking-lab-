@@ -20,6 +20,8 @@
       font-size: 14px;
     }
     .borrar-btn:hover { background: #c82333; }
+    .geo { background: #d4edda; border-left: 4px solid #28a745; padding: 8px; margin: 5px 0; }
+    .geo-error { background: #f8d7da; border-left: 4px solid #dc3545; }
   </style>
 </head>
 <body>
@@ -42,6 +44,7 @@
       }
     }
     
+    // 🆕 PANEL CON GEOLOCALIZACIÓN REAL
     async function cargarPanel() {
       const res = await fetch('/api/links');
       const links = await res.json();
@@ -56,8 +59,20 @@
           <div>
             ${link.clicks.map(clic => `
               <div class="clic">
+                <!-- 🆕 GEOLOCALIZACIÓN PRIORITARIA -->
+                ${clic.ciudad ? `
+                  <div class="geo">
+                    <strong>🗺️ Ubicación:</strong> ${clic.ciudad}, ${clic.pais}<br>
+                    <strong>📡 ISP:</strong> ${clic.isp}<br>
+                    <strong>📍 Coordenadas:</strong> ${clic.lat ? `${clic.lat.toFixed(4)}, ${clic.lon.toFixed(4)}` : 'No disponible'}
+                  </div>
+                ` : `
+                  <div class="geo-error">
+                    <strong>⚠️ Geolocalización:</strong> No disponible (timeout API)
+                  </div>
+                `}
                 📍 <strong>IP:</strong> ${clic.ip}<br>
-                🖥️ <strong>Dispositivo:</strong> ${clic.userAgent.substring(0,80)}...<br>
+                🖥️ <strong>Dispositivo:</strong> ${clic.userAgent.substring(0,60)}...<br>
                 🕒 <strong>Fecha:</strong> ${new Date(clic.fecha).toLocaleString('es-MX')}
                 ${clic.referrer ? `<br>🔗 <strong>Vino desde:</strong> ${clic.referrer}` : ''}
               </div>

@@ -48,7 +48,7 @@ app.post('/api/nuevo', (req, res) => {
   saveLinks(links);
   
   res.json({
-    corto: `http://localhost:3000/l/${id}`,
+    corto: `${req.protocol}://${req.get('host')}/l/${id}`,
     id,
     destino
   });
@@ -66,7 +66,7 @@ app.get('/l/:id', (req, res) => {
   
   // Registrar el clic
   const clic = {
-    ip: req.ip || req.connection.remoteAddress,
+    ip: (req.ip || req.connection.remoteAddress || req.socket.remoteAddress || '127.0.0.1').replace('::1', '127.0.0.1'),
     userAgent: req.headers['user-agent'] || 'desconocido',
     fecha: new Date().toISOString(),
     referrer: req.headers.referer || null

@@ -84,6 +84,22 @@ app.get('/api/links', (req, res) => {
   res.json(loadLinks());
 });
 
+// 🆕 NUEVA RUTA: BORRAR enlace específico
+app.delete('/api/links/:id', (req, res) => {
+  const { id } = req.params;
+  let links = loadLinks();
+  const indice = links.findIndex(l => l.id === id);
+  
+  if (indice === -1) {
+    return res.status(404).json({ error: 'Enlace no encontrado' });
+  }
+  
+  links.splice(indice, 1);  // Eliminar del array
+  saveLinks(links);
+  
+  res.json({ ok: true, mensaje: `Enlace ${id} eliminado` });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor en puerto ${PORT}`);
 });

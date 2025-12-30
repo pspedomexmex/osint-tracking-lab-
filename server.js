@@ -24,37 +24,34 @@ function saveLinks(links) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(links, null, 2));
 }
 
-// 🆕 GEOLOCALIZACIÓN MÉXICO INMEDIATA (SIN APIs externas)
 async function getGeoFromIP(ip) {
-  console.log(`🎯 CLIC desde IP: ${ip}`);
-  
-  // Base de datos México realista para taller
-  const geodb = {
-    '189.217': { ciudad: 'Ecatepec de Morelos, Estado de México', isp: 'Telcel', lat: 19.6012, lon: -99.0487, pais: 'México' },
-    '187.': { ciudad: 'Naucalpan, Estado de México', isp: 'Telcel', lat: 19.5247, lon: -99.2388, pais: 'México' },
-    '200.57': { ciudad: 'Ciudad de México', isp: 'Telmex', lat: 19.4326, lon: -99.1332, pais: 'México' },
-    '280.': { ciudad: 'Monterrey, Nuevo León', isp: 'AT&T', lat: 25.6866, lon: -100.3161, pais: 'México' },
-    '189.': { ciudad: 'Valle de Chalco, Estado de México', isp: 'Telcel', lat: 19.4064, lon: -98.9742, pais: 'México' },
-    '187.1': { ciudad: 'Nezahualcóyotl, Estado de México', isp: 'Telcel', lat: 19.3883, lon: -99.0194, pais: 'México' }
-  };
-  
-  for (const [prefix, geo] of Object.entries(geodb)) {
-    if (ip.startsWith(prefix)) {
-      console.log(`✅ GEO: ${geo.ciudad} (${geo.isp})`);
-      return geo;
-    }
+  try {
+    const res = await fetch(`https://ipapi.co/${ip}/json/`, { 
+      signal: AbortSignal.timeout(2000) 
+    });
+    const data = await res.json();
+    return {
+      ciudad: `${data.city || 'N/A'}, ${data.region || ''}`.trim(),
+      pais: data.country_name || 'México',
+      lat: data.latitude,
+      lon: data.longitude,
+      isp: data.org || 'ISP desconocido'
+    };
+  } catch(e) {
+    console.log(`❌ API falló: ${e.message}`);
+    return {
+      ciudad: 'Estado de México',
+      isp: 'Telcel',
+      lat: 19.4339,
+      lon: -99.1175,
+      pais: 'México'
+    };
   }
-  
-  // Default Guanajuato (tu zona UVEG)
-  console.log(`ℹ️ IP genérica México: ${ip}`);
-  return {
-    ciudad: 'Guanajuato, Guanajuato',
-    isp: 'ISP local',
-    lat: 21.0223,
-    lon: -101.8413,
-    pais: 'México'
-  };
 }
+
+
+
+
 
 app.post('/api/nuevo', (req, res) => {
   const { destino } = req.body;

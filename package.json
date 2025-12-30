@@ -1,0 +1,16 @@
+{
+  "name": "osint-tracking-lab",
+  "version": "1.0.0",
+  "description": "Laboratorio OSINT para detectar enlaces de geolocalización maliciosos",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["osint", "phishing", "tracking", "awareness"],
+  "author": "Edgar Climaco Martínez",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

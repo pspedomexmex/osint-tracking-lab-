@@ -11,6 +11,9 @@
   "author": "Edgar Climaco Martínez",
   "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2"
+  "express": "^4.19.2",
+  "nanoid": "^5.0.7"
   }
+
+
 }
